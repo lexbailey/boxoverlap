@@ -246,6 +246,8 @@ end;
 function selectBoxV(i,j:integer):integer;
 var box1Y, box2Y: integer;
 begin
+  //This function must be re-implemented for the REAL location storage method
+  //These two lines must change
   box1Y := LogicBoxData[i].y;
   box2Y := LogicBoxData[j].y;
   result := j;
@@ -259,11 +261,53 @@ end;
 function selectBoxH(i,j:integer):integer;
 var box1X, box2X: integer;
 begin
+  //This function must be re-implemented for the REAL location storage method
+  //These two lines must change
   box1X := LogicBoxData[i].x;
   box2X := LogicBoxData[j].x;
   result := j;
   if box1X < box2X then
     result := i;
+end;
+
+function isAbove(i, j: integer):boolean;
+var box1Y: integer;
+    box2Y: integer;
+begin
+  if doOverlap(i,j) then begin
+    result := false;
+    exit;
+  end;
+  //This function must be re-implemented for the REAL location storage method
+  //These two lines must change
+  box1Y := LogicBoxData[i].y;
+  box2Y := LogicBoxData[j].y;
+
+  result := (box1Y<box2Y);
+
+end;
+
+function isBehind(i, j: integer):boolean;
+var box1X: integer;
+    box2X: integer;
+begin
+  if doOverlap(i,j) then begin
+    result := false;
+    exit;
+  end;
+  //This function must be re-implemented for the REAL location storage method
+  //These two lines must change
+  box1X := LogicBoxData[i].x;
+  box2X := LogicBoxData[j].x;
+
+  result := (box1X<box2X);
+
+end;
+
+procedure waitForNext;
+begin
+  Application.ProcessMessages;
+  showMessage('Ready for next step?');
 end;
 
 //This is the function that aligns the boxes. (should probably be moved out of
@@ -272,7 +316,7 @@ procedure TForm1.btnAlignClick(Sender: TObject);
 var i, j, k: integer;
     overV, overH: integer;
     ratio: double;
-    toKeep: integer;
+    toKeep, firstMove: integer;
 begin
   //Set all box colours to blue
   for i := 0 to length(LogicBoxData)-1 do begin
@@ -297,26 +341,44 @@ begin
           if ratio > seMinRatio.Value then begin
             //If ratio allows, do a vertical shift
             toKeep := selectBoxV(i,j);
+            firstMove := j;
+            if toKeep = j then firstMove := i;
             memRes.Append('  Move away from ' + inttostr(toKeep) + ' Vertical');
+            //Move the overlapping box first
+            LogicBoxData[firstMove].y:=LogicBoxData[firstMove].y + overV + PADDING;
+            LogicBoxes[firstMove].Top := LogicBoxData[firstMove].y;
+            waitForNext;
             for k := 0 to length(LogicBoxData)-1 do begin
               //Move any box that is not the one to keep still and is further
               //from the top than the one to keep still (shift all away)
-              if (k <> toKeep) and (LogicBoxData[k].y >= LogicBoxData[toKeep].y) then begin
-                LogicBoxData[k].y:=LogicBoxData[k].y + overV + PADDING;
-                LogicBoxes[k].Top := LogicBoxData[k].y;
+              if (k <> toKeep) and (k <> firstMove) and (LogicBoxData[k].y >= LogicBoxData[toKeep].y) then begin
+                if (doOverlapH(k, firstMove)) and (not isAbove(k, firstMove)) then begin
+                  LogicBoxData[k].y:=LogicBoxData[k].y + overV + PADDING;
+                  LogicBoxes[k].Top := LogicBoxData[k].y;
+                  waitForNext;
+                end;
               end;
             end;
           end else
           begin
             //If ratio allows, do a horizontal shift
             toKeep := selectBoxH(i,j);
+            firstMove := j;
+            if toKeep = j then firstMove := i;
             memRes.Append('  Move away from ' + inttostr(toKeep) + ' Horizontal');
+            LogicBoxData[firstMove].x:=LogicBoxData[firstMove].x + overH + PADDING;
+            LogicBoxes[firstMove].Left := LogicBoxData[firstMove].x;
+            waitForNext;
+
             for k := 0 to length(LogicBoxData)-1 do begin
               //Move any box that is not the one to keep still and is further
               //from the left than the one to keep still (shift all away)
-              if (k <> toKeep) and (LogicBoxData[k].x >= LogicBoxData[toKeep].x) then begin
-                LogicBoxData[k].x:=LogicBoxData[k].x + overH + PADDING;
-                LogicBoxes[k].Left := LogicBoxData[k].x;
+              if (k <> toKeep) and (k <> firstMove) and (LogicBoxData[k].x >= LogicBoxData[toKeep].x) then begin
+                if (doOverlapV(k, firstMove)) and (not isBehind(k, firstMove)) then begin
+                  LogicBoxData[k].x:=LogicBoxData[k].x + overH + PADDING;
+                  LogicBoxes[k].Left := LogicBoxData[k].x;
+                  waitForNext;
+                end;
               end;
             end;
           end;
@@ -324,6 +386,7 @@ begin
           //resolved
           LogicBoxes[i].Color:=clRed;
           LogicBoxes[j].Color:=clRed;
+          waitForNext;
         end;
     end;
   end;
